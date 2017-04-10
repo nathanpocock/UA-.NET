@@ -1,4 +1,4 @@
-/* Copyright (c) 1996-2016, OPC Foundation. All rights reserved.
+/* Copyright (c) 1996-2017, OPC Foundation. All rights reserved.
 
    The source code in this file is covered under a dual-license scenario:
      - RCL: for OPC Foundation members in good-standing
@@ -19,6 +19,7 @@ using System.Collections.Generic;
 using System.Text;
 using System.Xml;
 using System.Globalization;
+using System.IO;
 
 namespace Opc.Ua
 {    
@@ -36,8 +37,9 @@ namespace Opc.Ua
             if (context == null) throw new ArgumentNullException("context");
             Initialize();
             m_context = context;
-        }     
-        
+            m_nestingLevel = 0;
+        }
+
         /// <summary>
         /// Initializes the object with an XML element to parse.
         /// </summary>
@@ -48,6 +50,7 @@ namespace Opc.Ua
             Initialize();
             m_reader  = new XmlNodeReader(element);
             m_context = context;
+            m_nestingLevel = 0;
             #endif  
         }
 
@@ -60,6 +63,7 @@ namespace Opc.Ua
 
             m_reader  = reader;
             m_context = context;
+            m_nestingLevel = 0;
 
             string ns = null;
             string name = null;
@@ -547,10 +551,18 @@ namespace Opc.Ua
 
             // check for empty body.
             XmlDocument document = new XmlDocument();
+            string xmlString = null;
 
             if (m_reader.IsEmptyElement)
-            {        
-                document.InnerXml = m_reader.ReadOuterXml();                        
+            {
+                xmlString = m_reader.ReadOuterXml();
+
+                using (XmlReader reader = XmlReader.Create(new StringReader(xmlString), new XmlReaderSettings() 
+                    { DtdProcessing = System.Xml.DtdProcessing.Prohibit, ValidationType = ValidationType.None }))
+                {
+                    document.Load(reader);
+                }
+
                 return document.DocumentElement;
             }
 
@@ -569,8 +581,15 @@ namespace Opc.Ua
                 return encodeable;
             }
             
-            // return undecoded xml body.                 
-            document.InnerXml = m_reader.ReadOuterXml();                        
+            // return undecoded xml body.
+            xmlString = m_reader.ReadOuterXml();
+
+            using (XmlReader reader = XmlReader.Create(new StringReader(xmlString), new XmlReaderSettings() 
+                { DtdProcessing = System.Xml.DtdProcessing.Prohibit, ValidationType = ValidationType.None }))
+            {
+                document.Load(reader);
+            }
+
             return document.DocumentElement;
         }
         #endregion
@@ -1207,6 +1226,17 @@ namespace Opc.Ua
         /// </summary>
         public DiagnosticInfo ReadDiagnosticInfo()
         {
+            // check the nesting level for avoiding a stack overflow.
+            if (m_nestingLevel > m_context.MaxEncodingNestingLevels)
+            {
+                throw ServiceResultException.Create(
+                    StatusCodes.BadEncodingLimitsExceeded,
+                    "Maximum nesting level of {0} was exceeded",
+                    m_context.MaxEncodingNestingLevels);
+            }
+
+            m_nestingLevel++;
+
             DiagnosticInfo value = new DiagnosticInfo();
 
             if (BeginField("SymbolicId", true))
@@ -1241,6 +1271,8 @@ namespace Opc.Ua
                 value.InnerDiagnosticInfo = ReadDiagnosticInfo();
                 EndField("InnerDiagnosticInfo");
             }
+
+            m_nestingLevel--;
 
             return value;
         }
@@ -1338,6 +1370,17 @@ namespace Opc.Ua
         /// </summary>
         public Variant ReadVariant(string fieldName)
         {
+            // check the nesting level for avoiding a stack overflow.
+            if (m_nestingLevel > m_context.MaxEncodingNestingLevels)
+            {
+                throw ServiceResultException.Create(
+                    StatusCodes.BadEncodingLimitsExceeded,
+                    "Maximum nesting level of {0} was exceeded",
+                    m_context.MaxEncodingNestingLevels);
+            }
+
+            m_nestingLevel++;
+
             Variant value = new Variant();
 
             if (BeginField(fieldName, true))
@@ -1364,6 +1407,8 @@ namespace Opc.Ua
                 
                 EndField(fieldName);
             }
+
+            m_nestingLevel--;
 
             return value;
         }
@@ -1460,12 +1505,23 @@ namespace Opc.Ua
                     Utils.Format("Type does not support IEncodeable interface: '{0}'", systemType.FullName));
             }
 
+            // check the nesting level for avoiding a stack overflow.
+            if (m_nestingLevel > m_context.MaxEncodingNestingLevels)
+            {
+                throw ServiceResultException.Create(
+                    StatusCodes.BadEncodingLimitsExceeded,
+                    "Maximum nesting level of {0} was exceeded",
+                    m_context.MaxEncodingNestingLevels);
+            }
+
+            m_nestingLevel++;
+
             if (BeginField(fieldName, true))
             {
                 XmlQualifiedName xmlName = EncodeableFactory.GetXmlName(systemType);
                 
-                PushNamespace(xmlName.Namespace);                
-                value.Decode(this);      
+                PushNamespace(xmlName.Namespace);
+                value.Decode(this);
                 PopNamespace();
                     
                 // skip to end of encodeable object.
@@ -1486,7 +1542,9 @@ namespace Opc.Ua
                           
                 EndField(fieldName);
             }
-             
+
+            m_nestingLevel--;
+
             return value;
         }
         
@@ -2763,6 +2821,7 @@ namespace Opc.Ua
         private ServiceMessageContext m_context;
         private ushort[] m_namespaceMappings;
         private ushort[] m_serverMappings;
+        private uint m_nestingLevel;
         #endregion
     }
 }

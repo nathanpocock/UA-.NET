@@ -1,4 +1,4 @@
-/* Copyright (c) 1996-2016, OPC Foundation. All rights reserved.
+/* Copyright (c) 1996-2017, OPC Foundation. All rights reserved.
 
    The source code in this file is covered under a dual-license scenario:
      - RCL: for OPC Foundation members in good-standing
@@ -975,15 +975,29 @@ namespace Opc.Ua.Bindings
             response.SecurityToken.RevisedLifetime = (uint)token.Lifetime;
             response.ServerNonce = token.ServerNonce;
             
-            byte[] buffer = BinaryEncoder.EncodeMessage(response, Quotas.MessageContext); 
-            
-            BufferCollection chunksToSend = WriteAsymmetricMessage(
-                TcpMessageType.Open,
-                requestId,
-                //ServerCertificateChain,
-                ServerCertificate,
-                ClientCertificate,
-                new ArraySegment<byte>(buffer, 0, buffer.Length));
+            byte[] buffer = BinaryEncoder.EncodeMessage(response, Quotas.MessageContext);
+            BufferCollection chunksToSend = null;
+            if (ServerCertificateChain != null)
+            {
+                chunksToSend = WriteAsymmetricMessage(
+                    TcpMessageType.Open,
+                    requestId,
+                    ServerCertificateChain,
+                    //ServerCertificate,
+                    ClientCertificate,
+                    new ArraySegment<byte>(buffer, 0, buffer.Length));
+            }
+            else
+            {
+                chunksToSend = WriteAsymmetricMessage(
+                                    TcpMessageType.Open,
+                                    requestId,
+                                    //ServerCertificateChain,
+                                    ServerCertificate,
+                                    ClientCertificate,
+                                    new ArraySegment<byte>(buffer, 0, buffer.Length));
+
+            }
 
             // write the message to the server.
             try

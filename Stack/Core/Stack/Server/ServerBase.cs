@@ -1,4 +1,4 @@
-/* Copyright (c) 1996-2016, OPC Foundation. All rights reserved.
+/* Copyright (c) 1996-2017, OPC Foundation. All rights reserved.
 
    The source code in this file is covered under a dual-license scenario:
      - RCL: for OPC Foundation members in good-standing
@@ -592,7 +592,7 @@ namespace Opc.Ua
         /// <summary>
         /// Gets the instance certificate chain.
         /// </summary>
-        /*protected X509Certificate2Collection InstanceCertificateChain
+        protected X509Certificate2Collection InstanceCertificateChain
         {
             get
             {
@@ -603,7 +603,7 @@ namespace Opc.Ua
             {
                 m_instanceCertificateChain = value;
             }
-        }*/
+        }
 
         /// <summary>
         /// The non-configurable properties for the server.
@@ -798,17 +798,28 @@ namespace Opc.Ua
                             "Server does not have an instance certificate assigned." );
                     }
 
-                    description.ServerCertificate = InstanceCertificate.RawData;
+                    //description.ServerCertificate = InstanceCertificate.RawData;
 
-                    //if (InstanceCertificateChain != null)
-                    //{
-                    //    List<byte> certificateChainList = new List<byte>();
-                    //    for (int i = 0; i < InstanceCertificateChain.Count; i++)
-                    //    {
-                    //        certificateChainList.AddRange(InstanceCertificateChain[i].RawData);
-                    //    }
-                    //    description.ServerCertificate = certificateChainList.ToArray();
-                    //}
+                    if (InstanceCertificateChain != null)
+                    {
+                        List<byte> certificateChainList = new List<byte>();
+
+                        //build certificate chain only if the respective option is true in server configuration
+                        System.Xml.XmlElement configExtension = configuration.Extensions.Find(e => e.Name.Equals("SendCertificateChain"));
+                        if ((configExtension == null || (configExtension != null && configExtension.InnerText.Equals("False"))))
+                        {
+                            certificateChainList.AddRange(InstanceCertificateChain[0].RawData);
+                        }
+                        else
+                        {
+                            for (int i = 0; i < InstanceCertificateChain.Count; i++)
+                            {
+                                certificateChainList.AddRange(InstanceCertificateChain[i].RawData);
+                            }
+                        }
+
+                        description.ServerCertificate =  certificateChainList.ToArray();
+                    }
                 }
 
                 endpoints.Add(description);
@@ -952,17 +963,28 @@ namespace Opc.Ua
 
                     if (requireEncryption)
                     {
-                        description.ServerCertificate = InstanceCertificate.RawData;
+                        //description.ServerCertificate = InstanceCertificate.RawData;
 
-                        //if (InstanceCertificateChain != null)
-                        //{
-                        //    List<byte> certificateChainList = new List<byte>();
-                        //    for (int i = 0; i < InstanceCertificateChain.Count; i++)
-                        //    {
-                        //        certificateChainList.AddRange(InstanceCertificateChain[i].RawData);
-                        //    }
-                        //    description.ServerCertificate = certificateChainList.ToArray();
-                        //}
+                        if (InstanceCertificateChain != null)
+                        {
+                            List<byte> certificateChainList = new List<byte>();
+
+                            //build certificate chain only if the respective option is true in server configuration
+                            System.Xml.XmlElement configExtension = configuration.Extensions.Find(e => e.Name.Equals("SendCertificateChain"));
+                            if ((configExtension == null || (configExtension != null && configExtension.InnerText.Equals("False"))))
+                            {
+                                certificateChainList.AddRange(InstanceCertificateChain[0].RawData);
+                            }
+                            else
+                            {
+                                for (int i = 0; i < InstanceCertificateChain.Count; i++)
+                                {
+                                    certificateChainList.AddRange(InstanceCertificateChain[i].RawData);
+                                }
+                            }
+                            
+                            description.ServerCertificate =   certificateChainList.ToArray();
+                        }
                     }
 
                     endpoints.Add( description );
@@ -976,7 +998,16 @@ namespace Opc.Ua
                     settings.Descriptions = endpoints;
                     settings.Configuration = endpointConfiguration;
                     settings.ServerCertificate = this.InstanceCertificate;
-                    //settings.ServerCertificateChain = this.InstanceCertificateChain;
+                    System.Xml.XmlElement configExtension = configuration.Extensions.Find(e => e.Name.Equals("SendCertificateChain"));
+                    if (((configExtension != null && configExtension.InnerText.Equals("False"))))
+                    {
+                        settings.ServerCertificateChain = null;
+
+                    }
+                    else
+                    {
+                        settings.ServerCertificateChain = this.InstanceCertificateChain;
+                    }
                     settings.CertificateValidator = configuration.CertificateValidator.GetChannelValidator();
                     settings.NamespaceUris = this.MessageContext.NamespaceUris;
                     settings.Factory = this.MessageContext.Factory;
@@ -1099,17 +1130,32 @@ namespace Opc.Ua
 
                     description.EndpointUrl = uri.ToString();
                     description.Server = serverDescription;
-                    description.ServerCertificate = InstanceCertificate.RawData;
+                    //description.ServerCertificate = InstanceCertificate.RawData;
 
-                    //if (InstanceCertificateChain != null)
-                    //{
-                    //    List<byte> certificateChainList = new List<byte>();
-                    //    for (int i = 0; i < InstanceCertificateChain.Count; i++)
-                    //    {
-                    //        certificateChainList.AddRange(InstanceCertificateChain[i].RawData);
-                    //    }
-                    //    description.ServerCertificate = certificateChainList.ToArray();
-                    //}
+                    if (InstanceCertificateChain != null)
+                    {
+                        List<byte> certificateChainList = new List<byte>();
+
+                        System.Xml.XmlElement configExtension = null;
+                        if (configuration.Extensions != null)
+												{
+                            configExtension = configuration.Extensions.Find(e => "SendCertificateChain".Equals(e.Name, StringComparison.InvariantCultureIgnoreCase));
+                        }
+                        if (configExtension != null && "true".Equals(configExtension.InnerText, StringComparison.InvariantCultureIgnoreCase))
+                        {
+                            for (int i = 0; i < InstanceCertificateChain.Count; i++)
+                            {
+                                certificateChainList.AddRange(InstanceCertificateChain[i].RawData);
+                            }
+                        }
+                        else
+                        {
+                            certificateChainList.AddRange(InstanceCertificateChain[0].RawData);
+                        }
+                        
+                        description.ServerCertificate = certificateChainList.ToArray();
+                    }
+
                     
                     description.SecurityMode = bestPolicy.SecurityMode;
                     description.SecurityPolicyUri = bestPolicy.SecurityPolicyUri;
@@ -1124,16 +1170,25 @@ namespace Opc.Ua
 
                     description.EndpointUrl = uri.ToString();
                     description.Server = serverDescription;
-                    description.ServerCertificate = InstanceCertificate.RawData;
-                    //if (InstanceCertificateChain != null)
-                    //{
-                    //    List<byte> certificateChainList = new List<byte>();
-                    //    for (int i = 0; i < InstanceCertificateChain.Count; i++)
-                    //    {
-                    //        certificateChainList.AddRange(InstanceCertificateChain[i].RawData);
-                    //    }
-                    //    description.ServerCertificate = certificateChainList.ToArray();
-                    //}
+					//description.ServerCertificate = InstanceCertificate.RawData;					
+					
+                    if (InstanceCertificateChain != null)
+                    {
+                        List<byte> certificateChainList = new List<byte>();
+                        System.Xml.XmlElement configExtension = configuration.Extensions.Find(e => e.Name.Equals("SendCertificateChain"));
+                        if ((configExtension == null || (configExtension != null && configExtension.InnerText.Equals("False"))))
+                        {
+                            certificateChainList.AddRange(InstanceCertificateChain[0].RawData);
+                        }
+                        else
+                        {
+                            for (int i = 0; i < InstanceCertificateChain.Count; i++)
+                            {
+                                certificateChainList.AddRange(InstanceCertificateChain[i].RawData);
+                            }
+                        }
+                        description.ServerCertificate = certificateChainList.ToArray();
+                    }
 
                     description.SecurityMode = MessageSecurityMode.None;
                     description.SecurityPolicyUri = SecurityPolicies.None;
@@ -1152,7 +1207,16 @@ namespace Opc.Ua
                     settings.Descriptions = endpoints;
                     settings.Configuration = endpointConfiguration;
                     settings.ServerCertificate = this.InstanceCertificate;
-                    //settings.ServerCertificateChain = this.InstanceCertificateChain;
+                    //build chain only if the flag for sending certificate chain is set to true within the configuration
+                    System.Xml.XmlElement configExtension = configuration.Extensions.Find(e => e.Name.Equals("SendCertificateChain"));
+                    if (((configExtension != null && configExtension.InnerText.Equals("True"))))
+                    {
+                        settings.ServerCertificateChain = this.InstanceCertificateChain;
+                    }
+                    else
+                    {
+                        settings.ServerCertificateChain = null;
+                    }
                     settings.CertificateValidator = configuration.CertificateValidator.GetChannelValidator();
                     settings.NamespaceUris = this.MessageContext.NamespaceUris;
                     settings.Factory = this.MessageContext.Factory;
@@ -1615,13 +1679,19 @@ namespace Opc.Ua
             }
 
             //load certificate chain
-            //InstanceCertificateChain = new X509Certificate2Collection(InstanceCertificate);
-            //List<CertificateIdentifier> issuers = new List<CertificateIdentifier>();
-            //configuration.CertificateValidator.GetIssuers(InstanceCertificate, issuers);
-            //for (int i = 0; i < issuers.Count; i++)
-            //{
-            //    InstanceCertificateChain.Add(issuers[i].Certificate);
-            //}
+            InstanceCertificateChain = new X509Certificate2Collection(InstanceCertificate);
+            List<CertificateIdentifier> issuers = new List<CertificateIdentifier>();
+            //only search issuer if not self-signed
+            if (!Utils.CompareDistinguishedName(InstanceCertificate.Subject, InstanceCertificate.Issuer))
+            {
+                configuration.CertificateValidator.GetIssuers(InstanceCertificate, issuers);
+
+                
+                for (int i = 0; i < issuers.Count; i++)
+                {
+                    InstanceCertificateChain.Add(issuers[i].Certificate);
+                }
+            }
             
             // use the message context from the configuration to ensure the channels are using the same one.
             MessageContext = configuration.CreateMessageContext();
@@ -1883,7 +1953,7 @@ namespace Opc.Ua
         private object m_serverError;
         private object m_certificateValidator;
         private object m_instanceCertificate;
-        //private X509Certificate2Collection m_instanceCertificateChain;
+        private X509Certificate2Collection m_instanceCertificateChain;
         private object m_serverProperties;
         private object m_configuration;
         private object m_serverDescription;

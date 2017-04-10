@@ -1,4 +1,4 @@
-/* Copyright (c) 1996-2016, OPC Foundation. All rights reserved.
+/* Copyright (c) 1996-2017, OPC Foundation. All rights reserved.
 
    The source code in this file is covered under a dual-license scenario:
      - RCL: for OPC Foundation members in good-standing
@@ -63,11 +63,11 @@ namespace Opc.Ua
         /// <value>
         /// The client certificate chain.
         /// </value>
-        //public X509Certificate2Collection ClientCertificateChain
-        //{
-        //    get { return m_clientCertificateChain; }
-        //    set { m_clientCertificateChain = value; }
-        //}
+        public X509Certificate2Collection ClientCertificateChain
+        {
+            get { return m_clientCertificateChain; }
+            set { m_clientCertificateChain = value; }
+        }
 
         /// <summary>
         /// Gets or Sets the server certificate.
@@ -135,7 +135,7 @@ namespace Opc.Ua
         private EndpointDescription m_description;
         private EndpointConfiguration m_configuration;
         private X509Certificate2 m_clientCertificate;
-        //private X509Certificate2Collection m_clientCertificateChain;
+        private X509Certificate2Collection m_clientCertificateChain;
         private X509Certificate2 m_serverCertificate;
         private X509CertificateValidator m_certificateValidator;
         private NamespaceTable m_namespaceUris;

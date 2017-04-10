@@ -1,5 +1,5 @@
 /* ========================================================================
- * Copyright (c) 2005-2016 The OPC Foundation, Inc. All rights reserved.
+ * Copyright (c) 2005-2017 The OPC Foundation, Inc. All rights reserved.
  *
  * OPC Foundation MIT License 1.00
  * 
@@ -58,5 +58,5 @@ using System.Runtime.InteropServices;
 //      Build Number
 //      Revision
 //
-[assembly: AssemblyVersion("1.03.340.0")]
-[assembly: AssemblyFileVersion("1.03.340.0")]
+[assembly: AssemblyVersion("1.03.341.0")]
+[assembly: AssemblyFileVersion("1.03.341.0")]

@@ -1,4 +1,4 @@
-/* Copyright (c) 1996-2016, OPC Foundation. All rights reserved.
+/* Copyright (c) 1996-2017, OPC Foundation. All rights reserved.
 
    The source code in this file is covered under a dual-license scenario:
      - RCL: for OPC Foundation members in good-standing
@@ -216,7 +216,7 @@ namespace Opc.Ua
                 keySize,
                 DateTime.MinValue,
                 lifetimeInMonths,
-                0,
+                (ushort)256,
                 false,
                 false, 
                 null, 
@@ -1968,9 +1968,9 @@ namespace Opc.Ua
             ref ushort lifetimeInMonths)
         {
             // enforce minimum keysize.
-            if (keySize < 1024)
+            if (keySize < 2048)
             {
-                keySize = 1024;
+                keySize = 2048;
             }
 
             if (keySize%1024 != 0)

@@ -1,5 +1,5 @@
 /* ========================================================================
- * Copyright (c) 2005-2016 The OPC Foundation, Inc. All rights reserved.
+ * Copyright (c) 2005-2017 The OPC Foundation, Inc. All rights reserved.
  *
  * OPC Foundation MIT License 1.00
  * 
@@ -768,7 +768,7 @@ namespace Opc.Ua.Client
             }
 
             X509Certificate2 clientCertificate = null;
-			//X509Certificate2Collection clientCertificateChain = null;
+			X509Certificate2Collection clientCertificateChain = null;
 
             if (endpointDescription.SecurityPolicyUri != SecurityPolicies.None)
             {
@@ -779,43 +779,71 @@ namespace Opc.Ua.Client
 
                 clientCertificate = configuration.SecurityConfiguration.ApplicationCertificate.Find( true );
 
-				if( clientCertificate == null )
-				{
+                if ( clientCertificate == null )
+                {
                     throw ServiceResultException.Create( StatusCodes.BadConfigurationError, "ApplicationCertificate cannot be found." );
                 }
-
-                //load certificate chain
-                //clientCertificateChain = new X509Certificate2Collection(clientCertificate);
-                //List<CertificateIdentifier> issuers = new List<CertificateIdentifier>();
-                //configuration.CertificateValidator.GetIssuers(clientCertificate, issuers);
-                //for (int i = 0; i < issuers.Count; i++)
-                //{
-                //    clientCertificateChain.Add(issuers[i].Certificate);
-                //}
+                else
+                {
+                    //load certificate chain
+                    List<CertificateIdentifier> issuers = new List<CertificateIdentifier>();
+                    configuration.CertificateValidator.GetIssuers(clientCertificate, issuers);
+                    if(issuers.Count > 0)
+                    {
+                        clientCertificateChain = new X509Certificate2Collection(clientCertificate);
+                        for (int i = 0; i < issuers.Count; i++)
+                        {
+                            clientCertificateChain.Add(issuers[i].Certificate);
+                        }
+                    }
+                    
+                }
             }
 
             // initialize the channel which will be created with the server.
-            ITransportChannel channel = SessionChannel.Create(
-                 configuration,
-                 endpointDescription,
-                 endpointConfiguration,
-                 //clientCertificateChain,
-                 clientCertificate,
-                 messageContext);
+            ITransportChannel channel = null;
+
+            //read sendCertificateChain option from configuration
+            if (clientCertificateChain != null)
+            {
+                XmlElement configExtension = null;
+                if (configuration.Extensions != null)
+                {
+                    configExtension = configuration.Extensions.Find(e => "SendCertificateChain".Equals(e.Name, StringComparison.InvariantCultureIgnoreCase));
+                }
+                if (configExtension != null && "true".Equals(configExtension.InnerText, StringComparison.InvariantCultureIgnoreCase))
+                {
+                    channel = SessionChannel.Create(
+                        configuration,
+                        endpointDescription,
+                        endpointConfiguration,
+                        clientCertificateChain,
+                        messageContext);
+                }
+            }
+
+            if (channel == null) {
+                channel = SessionChannel.Create(
+                    configuration,
+                    endpointDescription,
+                    endpointConfiguration,
+                    clientCertificate,
+                    messageContext);
+            }
 
             // create the session object.
             Session session = new Session(channel, configuration, endpoint, null);
 
             // create the session.
-			try
-			{
-				session.Open( sessionName, sessionTimeout, identity, preferredLocales, checkDomain );
-			}
-			catch
-			{
-				session.Dispose();
-				throw;
-			}
+            try
+            {
+                session.Open( sessionName, sessionTimeout, identity, preferredLocales, checkDomain );
+            }
+            catch
+            {
+                session.Dispose();
+                throw;
+            }
 
             return session;
         }
@@ -1993,18 +2021,20 @@ namespace Opc.Ua.Client
 
             if (certificateData != null && certificateData.Length > 0 && requireEncryption)
             {
-                serverCertificate = Utils.ParseCertificateBlob(certificateData);
-                m_configuration.CertificateValidator.Validate(serverCertificate);
+                //serverCertificate = Utils.ParseCertificateBlob(certificateData);
+                //m_configuration.CertificateValidator.Validate(serverCertificate);
 
                 if(checkDomain)
                 {
                     CheckCertificateDomain(m_endpoint);
                 }
 
-                //X509Certificate2Collection certificateChain = Utils.ParseCertificateChainBlob(certificateData);                
-                //if (certificateChain.Count > 0)
-                //    serverCertificate = certificateChain[0];
-                //m_configuration.CertificateValidator.Validate(certificateChain);
+                X509Certificate2Collection certificateChain = Utils.ParseCertificateChainBlob(certificateData);
+                if (certificateChain.Count > 0)
+                {
+                    serverCertificate = certificateChain[0];
+                }
+                m_configuration.CertificateValidator.Validate(certificateChain);
             }
 
             // create a nonce.
@@ -2122,9 +2152,25 @@ namespace Opc.Ua.Client
 				// verify that the server returned the same instance certificate.
                 if (serverCertificateData != null && !Utils.IsEqual(serverCertificateData, m_endpoint.Description.ServerCertificate))
 				{
-					throw ServiceResultException.Create(
-						StatusCodes.BadCertificateInvalid,
-						"Server did not return the certificate used to create the secure channel." );
+                    try
+                    {
+                        X509Certificate2Collection collection = Utils.ParseCertificateChainBlob(m_endpoint.Description.ServerCertificate);
+                        if (collection.Count > 0)
+                        {
+                            if (!Utils.IsEqual(serverCertificateData, collection[0].RawData))
+                            {
+                                throw ServiceResultException.Create(
+                                        StatusCodes.BadCertificateInvalid,
+                                        "Server did not return the certificate used to create the secure channel.");
+                            }
+                        }
+                    }
+                    catch (Exception )
+                    {
+                        throw ServiceResultException.Create(
+                                StatusCodes.BadCertificateInvalid,
+                                "Server did not return the certificate used to create the secure channel.");
+                    }
 				}
 
                 if (serverSignature == null || serverSignature.Signature == null)

@@ -1,4 +1,4 @@
-/* Copyright (c) 1996-2016, OPC Foundation. All rights reserved.
+/* Copyright (c) 1996-2017, OPC Foundation. All rights reserved.
 
    The source code in this file is covered under a dual-license scenario:
      - RCL: for OPC Foundation members in good-standing
@@ -481,15 +481,29 @@ namespace Opc.Ua.Bindings
             // encode the request.            
             byte[] buffer = BinaryEncoder.EncodeMessage(request, Quotas.MessageContext); 
 
+			BufferCollection chunksToSend;
+			
             // write the asymmetric message.
-            BufferCollection chunksToSend = WriteAsymmetricMessage(
+             if (ClientCertificateChain != null)
+            {
+                chunksToSend = WriteAsymmetricMessage(
+                TcpMessageType.Open,
+                m_handshakeOperation.RequestId,
+                ClientCertificateChain,
+                //ClientCertificate,
+                ServerCertificate,
+                new ArraySegment<byte>(buffer, 0, buffer.Length));
+            }else
+            {
+                chunksToSend = WriteAsymmetricMessage(
                 TcpMessageType.Open,
                 m_handshakeOperation.RequestId,
                 //ClientCertificateChain,
                 ClientCertificate,
                 ServerCertificate,
                 new ArraySegment<byte>(buffer, 0, buffer.Length));
-
+            }
+            
             // save token.
             m_requestedToken = token;
             
